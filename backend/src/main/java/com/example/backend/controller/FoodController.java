@@ -1,7 +1,9 @@
 package com.example.backend.controller;
 
 import com.example.backend.entity.FoodItem;
+import com.example.backend.entity.Category;
 import com.example.backend.repository.FoodItemRepository;
+import com.example.backend.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,28 @@ public class FoodController {
     @Autowired
     private FoodItemRepository foodItemRepository;
     
+    @Autowired
+    private CategoryRepository categoryRepository;
+    
     @GetMapping
     public List<FoodItem> getAllFood() {
         return foodItemRepository.findByAvailableTrue();
+    }
+    
+    @GetMapping("/search")
+    public List<FoodItem> searchFood(@RequestParam String query) {
+        return foodItemRepository.findByNameContainingIgnoreCaseAndAvailableTrue(query);
+    }
+    
+    @GetMapping("/category/{categoryId}")
+    public List<FoodItem> getFoodByCategory(@PathVariable Long categoryId) {
+        Category category = categoryRepository.findById(categoryId).orElse(null);
+        return category != null ? foodItemRepository.findByCategory(category) : List.of();
+    }
+    
+    @GetMapping("/top-rated")
+    public List<FoodItem> getTopRatedFood() {
+        return foodItemRepository.findTopRatedItems();
     }
     
     @PostMapping

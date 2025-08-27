@@ -16,6 +16,12 @@ public class FoodItem {
     private String description;
     private BigDecimal price;
     private String imageUrl;
-    private String category;
+    
+    @ManyToOne
+    private Category category;
+    
     private Boolean available = true;
+    private Integer stockQuantity = 0;
+    private Double averageRating = 0.0;
+    private Integer ratingCount = 0;
 }

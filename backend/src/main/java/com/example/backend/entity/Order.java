@@ -20,14 +20,42 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> items;
     
+    private BigDecimal subtotal;
+    private BigDecimal discountAmount = BigDecimal.ZERO;
     private BigDecimal totalAmount;
+    
+    @ManyToOne
+    private Coupon coupon;
     
     @Enumerated(EnumType.STRING)
     private Status status = Status.PENDING;
     
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Enumerated(EnumType.STRING)
+    private OrderType orderType = OrderType.DELIVERY;
+    
+    @Enumerated(EnumType.STRING)
+    private PaymentMethod paymentMethod = PaymentMethod.COD;
+    
+    private String deliveryAddress;
+    private String notes;
+    
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+    
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     
     public enum Status {
         PENDING, CONFIRMED, PREPARING, READY, DELIVERED, CANCELLED
+    }
+    
+    public enum OrderType {
+        DELIVERY, TAKEAWAY
+    }
+    
+    public enum PaymentMethod {
+        COD, ONLINE
     }
 }

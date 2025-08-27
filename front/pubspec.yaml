@@ -1,5 +1,5 @@
-name: front
-description: "A new Flutter project."
+name: food_ordering_app
+description: "A comprehensive food ordering application with Flutter frontend and Spring Boot backend."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

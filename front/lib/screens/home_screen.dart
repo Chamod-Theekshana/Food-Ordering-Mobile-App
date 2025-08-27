@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../models/food_item.dart';
+import '../models/category.dart';
 import '../services/api_service.dart';
+import '../providers/cart_provider.dart';
+import 'cart_screen.dart';
+import 'food_detail_screen.dart';
+import 'wishlist_screen.dart';
+import 'profile_screen.dart';
+import 'order_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -12,26 +20,53 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<FoodItem> _foodItems = [];
-  final List<FoodItem> _cart = [];
+  List<Category> _categories = [];
+  List<FoodItem> _filteredItems = [];
+  final TextEditingController _searchController = TextEditingController();
+  Category? _selectedCategory;
+  late TabController _tabController;
+  int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadFoodItems();
+    _tabController = TabController(length: 4, vsync: this);
+    _loadData();
   }
 
-  Future<void> _loadFoodItems() async {
+  Future<void> _loadData() async {
+    final categories = await ApiService.getCategories();
     final items = await ApiService.getFoodItems();
-    setState(() => _foodItems = items);
+    setState(() {
+      _categories = categories;
+      _foodItems = items;
+      _filteredItems = items;
+    });
   }
 
-  void _addToCart(FoodItem item) {
-    setState(() => _cart.add(item));
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${item.name} added to cart')));
+  void _filterItems(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredItems = _selectedCategory != null
+            ? _foodItems.where((item) => item.category?.id == _selectedCategory!.id).toList()
+            : _foodItems;
+      } else {
+        _filteredItems = _foodItems
+            .where((item) => item.name.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  void _filterByCategory(Category? category) {
+    setState(() {
+      _selectedCategory = category;
+      _filteredItems = category != null
+          ? _foodItems.where((item) => item.category?.id == category.id).toList()
+          : _foodItems;
+    });
   }
 
   @override
@@ -40,129 +75,214 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text('Welcome ${widget.user.name}'),
         actions: [
-          IconButton(
-            icon: Badge(
-              label: Text('${_cart.length}'),
-              child: const Icon(Icons.shopping_cart),
+          Consumer<CartProvider>(
+            builder: (context, cart, child) => IconButton(
+              icon: Badge(
+                label: Text('${cart.itemCount}'),
+                child: const Icon(Icons.shopping_cart),
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => CartScreen(user: widget.user)),
+              ),
             ),
-            onPressed: () => _showCart(),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(),
+          PopupMenuButton(
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [Icon(Icons.person), SizedBox(width: 8), Text('Profile')],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'orders',
+                child: Row(
+                  children: [Icon(Icons.history), SizedBox(width: 8), Text('Order History')],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'wishlist',
+                child: Row(
+                  children: [Icon(Icons.favorite), SizedBox(width: 8), Text('Wishlist')],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [Icon(Icons.logout), SizedBox(width: 8), Text('Logout')],
+                ),
+              ),
+            ],
+            onSelected: (value) {
+              switch (value) {
+                case 'profile':
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)));
+                  break;
+                case 'orders':
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => OrderHistoryScreen(user: widget.user)));
+                  break;
+                case 'wishlist':
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => WishlistScreen(user: widget.user)));
+                  break;
+                case 'logout':
+                  Navigator.pushReplacementNamed(context, '/');
+                  break;
+              }
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search food items...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              onChanged: _filterItems,
+            ),
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          // Categories
+          Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                const SizedBox(width: 16),
+                FilterChip(
+                  label: const Text('All'),
+                  selected: _selectedCategory == null,
+                  onSelected: (_) => _filterByCategory(null),
+                ),
+                const SizedBox(width: 8),
+                ..._categories.map((category) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(category.name),
+                    selected: _selectedCategory?.id == category.id,
+                    onSelected: (_) => _filterByCategory(category),
+                  ),
+                )),
+              ],
+            ),
+          ),
+          // Food Items
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemCount: _filteredItems.length,
+              itemBuilder: (context, index) {
+                final item = _filteredItems[index];
+                return GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FoodDetailScreen(foodItem: item, user: widget.user),
+                    ),
+                  ),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                              image: item.imageUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(item.imageUrl!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                            ),
+                            child: item.imageUrl == null
+                                ? const Center(child: Icon(Icons.fastfood, size: 50, color: Colors.grey))
+                                : null,
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(Icons.star, color: Colors.amber, size: 16),
+                                    Text('${item.averageRating.toStringAsFixed(1)} (${item.ratingCount})', style: TextStyle(fontSize: 12)),
+                                  ],
+                                ),
+                                const Spacer(),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '\$${item.price.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                                    ),
+                                    Consumer<CartProvider>(
+                                      builder: (context, cart, child) => IconButton(
+                                        icon: const Icon(Icons.add_shopping_cart, size: 20),
+                                        onPressed: () {
+                                          cart.addItem(item);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('${item.name} added to cart')),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.8,
-        ),
-        itemCount: _foodItems.length,
-        itemBuilder: (context, index) {
-          final item = _foodItems[index];
-          return Card(
-            child: Column(
-              children: [
-                Expanded(
-                  child:
-                      item.imageUrl != null
-                          ? Image.network(item.imageUrl!, fit: BoxFit.cover)
-                          : const Icon(Icons.fastfood, size: 50),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    children: [
-                      Text(
-                        item.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text('\$${item.price.toStringAsFixed(2)}'),
-                      ElevatedButton(
-                        onPressed: () => _addToCart(item),
-                        child: const Text('Add to Cart'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
     );
   }
 
-  void _showCart() {
-    showModalBottomSheet(
-      context: context,
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const Text(
-                  'Cart',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _cart.length,
-                    itemBuilder: (context, index) {
-                      final item = _cart[index];
-                      return ListTile(
-                        title: Text(item.name),
-                        subtitle: Text('\$${item.price.toStringAsFixed(2)}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed:
-                              () => setState(() => _cart.removeAt(index)),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: _cart.isNotEmpty ? () => _placeOrder() : null,
-                  child: Text(
-                    'Place Order (\$${_cart.fold(0.0, (sum, item) => sum + item.price).toStringAsFixed(2)})',
-                  ),
-                ),
-              ],
-            ),
-          ),
-    );
-  }
-
-  void _placeOrder() async {
-    final items =
-        _cart
-            .map(
-              (item) => {
-                'foodItem': {'id': item.id},
-                'quantity': 1,
-                'price': item.price,
-              },
-            )
-            .toList();
-
-    final success = await ApiService.createOrder(widget.user.id, items);
-
-    setState(() => _cart.clear());
-    Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success ? 'Order placed successfully!' : 'Failed to place order',
-        ),
-      ),
-    );
-  }
-
-  void _logout() {
-    Navigator.pushReplacementNamed(context, '/');
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _tabController.dispose();
+    super.dispose();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/food_item.dart';
+import '../models/category.dart';
 import '../services/api_service.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -12,63 +13,383 @@ class AdminScreen extends StatefulWidget {
   State<AdminScreen> createState() => _AdminScreenState();
 }
 
-class _AdminScreenState extends State<AdminScreen> {
+class _AdminScreenState extends State<AdminScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
   List<FoodItem> _foodItems = [];
+  List<Category> _categories = [];
+  List<dynamic> _orders = [];
+  Map<String, dynamic> _dashboardStats = {};
 
   @override
   void initState() {
     super.initState();
-    _loadFoodItems();
+    _tabController = TabController(length: 5, vsync: this);
+    _loadData();
   }
 
-  Future<void> _loadFoodItems() async {
+  Future<void> _loadData() async {
     final items = await ApiService.getFoodItems();
-    setState(() => _foodItems = items);
+    final categories = await ApiService.getCategories();
+    final orders = await ApiService.getAllOrders();
+    final stats = await ApiService.getDashboardStats();
+    
+    setState(() {
+      _foodItems = items;
+      _categories = categories;
+      _orders = orders;
+      _dashboardStats = stats;
+    });
   }
 
-  void _showAddEditDialog([FoodItem? item]) {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Admin Panel - ${widget.user.name}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => Navigator.pushReplacementNamed(context, '/'),
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: const [
+            Tab(icon: Icon(Icons.dashboard), text: 'Dashboard'),
+            Tab(icon: Icon(Icons.restaurant_menu), text: 'Menu'),
+            Tab(icon: Icon(Icons.category), text: 'Categories'),
+            Tab(icon: Icon(Icons.receipt), text: 'Orders'),
+            Tab(icon: Icon(Icons.people), text: 'Customers'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildDashboard(),
+          _buildMenuManagement(),
+          _buildCategoryManagement(),
+          _buildOrderManagement(),
+          _buildCustomerManagement(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboard() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Stats Cards
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 1.5,
+            children: [
+              _buildStatCard('Total Orders', '${_dashboardStats['totalOrders'] ?? 0}', Icons.receipt, Colors.blue),
+              _buildStatCard('Total Users', '${_dashboardStats['totalUsers'] ?? 0}', Icons.people, Colors.green),
+              _buildStatCard('Menu Items', '${_dashboardStats['totalFoodItems'] ?? 0}', Icons.restaurant, Colors.orange),
+              _buildStatCard('Today Orders', '${_dashboardStats['todayOrders'] ?? 0}', Icons.today, Colors.purple),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // Recent Orders
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Recent Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  ..._orders.take(5).map((order) => ListTile(
+                    title: Text('Order #${order['id']}'),
+                    subtitle: Text('${order['user']['name']} - \$${order['totalAmount'].toStringAsFixed(2)}'),
+                    trailing: Chip(
+                      label: Text(order['status']),
+                      backgroundColor: _getStatusColor(order['status']),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(title, style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuManagement() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('Menu Items (${_foodItems.length})', 
+                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => _showAddEditFoodDialog(),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Item'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _foodItems.length,
+            itemBuilder: (context, index) {
+              final item = _foodItems[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: ListTile(
+                  leading: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      image: item.imageUrl != null
+                          ? DecorationImage(image: NetworkImage(item.imageUrl!), fit: BoxFit.cover)
+                          : null,
+                    ),
+                    child: item.imageUrl == null ? const Icon(Icons.fastfood) : null,
+                  ),
+                  title: Text(item.name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${item.category?.name ?? 'No Category'} - \$${item.price.toStringAsFixed(2)}'),
+                      Row(
+                        children: [
+                          Icon(Icons.star, size: 16, color: Colors.amber),
+                          Text('${item.averageRating.toStringAsFixed(1)} (${item.ratingCount})'),
+                          const SizedBox(width: 16),
+                          Icon(Icons.inventory, size: 16, color: Colors.grey),
+                          Text('Stock: ${item.stockQuantity}'),
+                        ],
+                      ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Switch(
+                        value: item.available,
+                        onChanged: (value) => _toggleItemAvailability(item, value),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _showAddEditFoodDialog(item),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteFoodItem(item),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryManagement() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('Categories (${_categories.length})', 
+                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => _showAddEditCategoryDialog(),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Category'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _categories.length,
+            itemBuilder: (context, index) {
+              final category = _categories[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: ListTile(
+                  leading: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.orange.shade100,
+                    ),
+                    child: const Icon(Icons.category, color: Colors.orange),
+                  ),
+                  title: Text(category.name),
+                  subtitle: Text(category.description),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Switch(
+                        value: category.active,
+                        onChanged: (value) => _toggleCategoryStatus(category, value),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _showAddEditCategoryDialog(category),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOrderManagement() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Orders (${_orders.length})', 
+                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _orders.length,
+            itemBuilder: (context, index) {
+              final order = _orders[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: ExpansionTile(
+                  title: Text('Order #${order['id']}'),
+                  subtitle: Text('${order['user']['name']} - \$${order['totalAmount'].toStringAsFixed(2)}'),
+                  leading: CircleAvatar(
+                    backgroundColor: _getStatusColor(order['status']),
+                    child: Text('${order['id']}'),
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: order['status'],
+                    items: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED']
+                        .map((status) => DropdownMenuItem(value: status, child: Text(status)))
+                        .toList(),
+                    onChanged: (newStatus) => _updateOrderStatus(order['id'], newStatus!),
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Customer: ${order['user']['name']}'),
+                          Text('Email: ${order['user']['email']}'),
+                          Text('Order Type: ${order['orderType'] ?? 'DELIVERY'}'),
+                          Text('Payment: ${order['paymentMethod'] ?? 'COD'}'),
+                          if (order['deliveryAddress'] != null)
+                            Text('Address: ${order['deliveryAddress']}'),
+                          const SizedBox(height: 8),
+                          const Text('Items:', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ...List.generate(order['items'].length, (itemIndex) {
+                            final item = order['items'][itemIndex];
+                            return Text('• ${item['foodItem']['name']} x${item['quantity']} - \$${(item['price'] * item['quantity']).toStringAsFixed(2)}');
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCustomerManagement() {
+    return const Center(
+      child: Text('Customer Management\n(Feature coming soon)', 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, color: Colors.grey)),
+    );
+  }
+
+  void _showAddEditFoodDialog([FoodItem? item]) {
     final nameController = TextEditingController(text: item?.name ?? '');
     final descController = TextEditingController(text: item?.description ?? '');
     final priceController = TextEditingController(text: item?.price.toString() ?? '');
-    final categoryController = TextEditingController(text: item?.category ?? '');
+    final stockController = TextEditingController(text: item?.stockQuantity.toString() ?? '0');
+    Category? selectedCategory = item?.category;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(item == null ? 'Add Food Item' : 'Edit Food Item'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
-            TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price')),
-            TextField(controller: categoryController, decoration: const InputDecoration(labelText: 'Category')),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+              TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
+              TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price'), keyboardType: TextInputType.number),
+              TextField(controller: stockController, decoration: const InputDecoration(labelText: 'Stock Quantity'), keyboardType: TextInputType.number),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<Category>(
+                value: selectedCategory,
+                decoration: const InputDecoration(labelText: 'Category'),
+                items: _categories.map((category) => DropdownMenuItem(
+                  value: category,
+                  child: Text(category.name),
+                )).toList(),
+                onChanged: (category) => selectedCategory = category,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
             onPressed: () async {
-              final newItem = FoodItem(
-                id: item?.id ?? 0,
-                name: nameController.text,
-                description: descController.text,
-                price: double.parse(priceController.text),
-                category: categoryController.text,
-                available: true,
-              );
-
-              bool success;
-              if (item == null) {
-                success = await ApiService.addFoodItem(newItem);
-              } else {
-                success = await ApiService.updateFoodItem(item.id, newItem);
-              }
-
-              if (success) {
-                _loadFoodItems();
-                Navigator.pop(context);
-              }
+              // TODO: Implement save functionality with new fields
+              Navigator.pop(context);
+              _loadData();
             },
             child: const Text('Save'),
           ),
@@ -77,53 +398,98 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Admin - ${widget.user.name}'),
+  void _showAddEditCategoryDialog([Category? category]) {
+    final nameController = TextEditingController(text: category?.name ?? '');
+    final descController = TextEditingController(text: category?.description ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(category == null ? 'Add Category' : 'Edit Category'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _showAddEditDialog(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              // TODO: Implement category save functionality
+              Navigator.pop(context);
+              _loadData();
+            },
+            child: const Text('Save'),
           ),
         ],
-      ),
-      body: ListView.builder(
-        itemCount: _foodItems.length,
-        itemBuilder: (context, index) {
-          final item = _foodItems[index];
-          return ListTile(
-            title: Text(item.name),
-            subtitle: Text('${item.category} - \$${item.price.toStringAsFixed(2)}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _showAddEditDialog(item),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () async {
-                    if (await ApiService.deleteFoodItem(item.id)) {
-                      _loadFoodItems();
-                    }
-                  },
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
 
-  void _logout() {
-    Navigator.pushReplacementNamed(context, '/');
+  void _toggleItemAvailability(FoodItem item, bool available) async {
+    // TODO: Implement toggle availability
+    _loadData();
+  }
+
+  void _toggleCategoryStatus(Category category, bool active) async {
+    // TODO: Implement toggle category status
+    _loadData();
+  }
+
+  void _deleteFoodItem(FoodItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Item'),
+        content: Text('Are you sure you want to delete ${item.name}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await ApiService.deleteFoodItem(item.id);
+      if (success) {
+        _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item deleted successfully')),
+        );
+      }
+    }
+  }
+
+  void _updateOrderStatus(int orderId, String newStatus) async {
+    final success = await ApiService.updateOrderStatus(orderId, newStatus);
+    if (success) {
+      _loadData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order status updated')),
+      );
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'PENDING': return Colors.orange;
+      case 'CONFIRMED': return Colors.blue;
+      case 'PREPARING': return Colors.purple;
+      case 'READY': return Colors.green;
+      case 'DELIVERED': return Colors.teal;
+      case 'CANCELLED': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }

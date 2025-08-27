@@ -1,11 +1,16 @@
+import 'category.dart';
+
 class FoodItem {
   final int id;
   final String name;
   final String description;
   final double price;
   final String? imageUrl;
-  final String category;
+  final Category? category;
   final bool available;
+  final int stockQuantity;
+  final double averageRating;
+  final int ratingCount;
 
   FoodItem({
     required this.id,
@@ -13,8 +18,11 @@ class FoodItem {
     required this.description,
     required this.price,
     this.imageUrl,
-    required this.category,
+    this.category,
     required this.available,
+    required this.stockQuantity,
+    required this.averageRating,
+    required this.ratingCount,
   });
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
@@ -24,8 +32,11 @@ class FoodItem {
       description: json['description'],
       price: json['price'].toDouble(),
       imageUrl: json['imageUrl'],
-      category: json['category'],
+      category: json['category'] != null ? Category.fromJson(json['category']) : null,
       available: json['available'],
+      stockQuantity: json['stockQuantity'] ?? 0,
+      averageRating: (json['averageRating'] ?? 0.0).toDouble(),
+      ratingCount: json['ratingCount'] ?? 0,
     );
   }
 
@@ -35,8 +46,9 @@ class FoodItem {
       'description': description,
       'price': price,
       'imageUrl': imageUrl,
-      'category': category,
+      'category': category?.toJson(),
       'available': available,
+      'stockQuantity': stockQuantity,
     };
   }
 }
