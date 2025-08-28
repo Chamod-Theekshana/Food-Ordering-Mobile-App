@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   Category? _selectedCategory;
   late TabController _tabController;
-  int _currentIndex = 0;
+  final int _currentIndex = 0;
 
   @override
   void initState() {

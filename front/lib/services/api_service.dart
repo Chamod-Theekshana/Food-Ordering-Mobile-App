@@ -213,4 +213,28 @@ class ApiService {
     }
     return {};
   }
+
+  // User Profile APIs
+  static Future<bool> updateUserProfile(int userId, String name, String phone, String address) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/users/$userId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        'phone': phone,
+        'address': address,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  // Admin APIs
+  static Future<bool> createFirstAdmin(String email, String password, String name) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/create-first-admin'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password, 'name': name}),
+    );
+    return response.statusCode == 200;
+  }
 }
