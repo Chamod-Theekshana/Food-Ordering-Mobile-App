@@ -23,6 +23,11 @@ public class CategoryController {
         return categoryRepository.findByActiveTrue();
     }
     
+    @GetMapping("/admin")
+    public List<Category> getAllCategoriesForAdmin() {
+        return categoryRepository.findAll();
+    }
+    
     @PostMapping
     public ResponseEntity<?> addCategory(@Valid @RequestBody CategoryRequest request) {
         try {
@@ -46,6 +51,9 @@ public class CategoryController {
                 category.setName(request.getName());
                 category.setDescription(request.getDescription());
                 category.setImageUrl(request.getImageUrl());
+                if (request.getActive() != null) {
+                    category.setActive(request.getActive());
+                }
                 return ResponseEntity.ok(categoryRepository.save(category));
             }
             return ResponseEntity.notFound().build();

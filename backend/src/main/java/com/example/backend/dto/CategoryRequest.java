@@ -12,6 +12,7 @@ public class CategoryRequest {
     private String description;
     
     private String imageUrl;
+    private Boolean active = true;
     
     // Getters and setters
     public String getName() { return name; }
@@ -20,4 +21,6 @@ public class CategoryRequest {
     public void setDescription(String description) { this.description = description; }
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
 }

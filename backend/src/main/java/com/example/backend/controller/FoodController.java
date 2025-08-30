@@ -28,6 +28,11 @@ public class FoodController {
         return foodItemRepository.findByAvailableTrue();
     }
     
+    @GetMapping("/admin")
+    public List<FoodItem> getAllFoodForAdmin() {
+        return foodItemRepository.findAll();
+    }
+    
     @GetMapping("/search")
     public List<FoodItem> searchFood(@RequestParam String query) {
         return foodItemRepository.findByNameContainingIgnoreCaseAndAvailableTrue(query);

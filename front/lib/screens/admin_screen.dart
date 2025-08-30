@@ -31,17 +31,43 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   Future<void> _loadData() async {
-    final items = await ApiService.getFoodItems();
-    final categories = await ApiService.getCategories();
-    final orders = await ApiService.getAllOrders();
-    final stats = await ApiService.getDashboardStats();
+    try {
+      print('Admin: Loading data...');
+      print('Admin: Base URL: ${ApiService.baseUrl}');
+      
+      final items = await ApiService.getAllFoodItemsForAdmin();
+      print('Admin: Food items loaded: ${items.length}');
+      for (var item in items) {
+        print('  - ${item.name} (${item.category?.name ?? 'No Category'})');
+      }
+      
+      final categories = await ApiService.getAllCategoriesForAdmin();
+      print('Admin: Categories loaded: ${categories.length}');
+      for (var cat in categories) {
+        print('  - ${cat.name} (Active: ${cat.active})');
+      }
+      
+      final orders = await ApiService.getAllOrders();
+      print('Admin: Orders loaded: ${orders.length}');
+      
+      final stats = await ApiService.getDashboardStats();
+      print('Admin: Stats loaded: $stats');
 
-    setState(() {
-      _foodItems = items;
-      _categories = categories;
-      _orders = orders;
-      _dashboardStats = stats;
-    });
+      setState(() {
+        _foodItems = items;
+        _categories = categories;
+        _orders = orders;
+        _dashboardStats = stats;
+      });
+      
+      print('Admin: UI updated with new data');
+    } catch (e, stackTrace) {
+      print('Admin: Error loading data: $e');
+      print('Admin: Stack trace: $stackTrace');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e')),
+      );
+    }
   }
 
   @override
@@ -205,7 +231,26 @@ class _AdminScreenState extends State<AdminScreen>
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: _foodItems.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.restaurant_menu, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No menu items found',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add food items to your menu',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
             itemCount: _foodItems.length,
             itemBuilder: (context, index) {
               final item = _foodItems[index];
@@ -302,7 +347,26 @@ class _AdminScreenState extends State<AdminScreen>
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: _categories.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.category, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No categories found',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add categories to organize your menu',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
             itemCount: _categories.length,
             itemBuilder: (context, index) {
               final category = _categories[index];
@@ -496,6 +560,7 @@ class _AdminScreenState extends State<AdminScreen>
                           ),
                           items:
                               _categories
+                                  .where((cat) => cat.active)
                                   .map(
                                     (category) => DropdownMenuItem(
                                       value: category,
@@ -648,16 +713,37 @@ class _AdminScreenState extends State<AdminScreen>
 
     try {
       final url = id == null ? 'food' : 'food/$id';
-      final method = id == null ? 'POST' : 'PUT';
-
-      final response =
-          http.Request(method, Uri.parse('${ApiService.baseUrl}/$url'))
-            ..headers['Content-Type'] = 'application/json'
-            ..body = jsonEncode(data);
-
-      final streamedResponse = await response.send();
-      return streamedResponse.statusCode == 200;
+      print('Admin: Saving food item to ${ApiService.baseUrl}/$url');
+      print('Admin: Food item data: $data');
+      
+      http.Response response;
+      if (id == null) {
+        response = await http.post(
+          Uri.parse('${ApiService.baseUrl}/$url'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(data),
+        );
+      } else {
+        response = await http.put(
+          Uri.parse('${ApiService.baseUrl}/$url'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(data),
+        );
+      }
+      
+      print('Admin: Food item save response: ${response.statusCode}');
+      print('Admin: Food item save response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Server error: ${response.statusCode}')),
+        );
+        return false;
+      }
     } catch (e) {
+      print('Admin: Error saving food item: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -818,16 +904,37 @@ class _AdminScreenState extends State<AdminScreen>
 
     try {
       final url = id == null ? 'categories' : 'categories/$id';
-      final method = id == null ? 'POST' : 'PUT';
-
-      final response =
-          http.Request(method, Uri.parse('${ApiService.baseUrl}/$url'))
-            ..headers['Content-Type'] = 'application/json'
-            ..body = jsonEncode(data);
-
-      final streamedResponse = await response.send();
-      return streamedResponse.statusCode == 200;
+      print('Admin: Saving category to ${ApiService.baseUrl}/$url');
+      print('Admin: Category data: $data');
+      
+      http.Response response;
+      if (id == null) {
+        response = await http.post(
+          Uri.parse('${ApiService.baseUrl}/$url'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(data),
+        );
+      } else {
+        response = await http.put(
+          Uri.parse('${ApiService.baseUrl}/$url'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(data),
+        );
+      }
+      
+      print('Admin: Category save response: ${response.statusCode}');
+      print('Admin: Category save response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Server error: ${response.statusCode}')),
+        );
+        return false;
+      }
     } catch (e) {
+      print('Admin: Error saving category: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -836,13 +943,62 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   void _toggleItemAvailability(FoodItem item, bool available) async {
-    // TODO: Implement toggle availability
-    _loadData();
+    try {
+      final data = {
+        'name': item.name,
+        'description': item.description,
+        'price': item.price,
+        'stockQuantity': item.stockQuantity,
+        'categoryId': item.category?.id,
+        'imageUrl': item.imageUrl,
+        'available': available,
+      };
+
+      final response = await http.put(
+        Uri.parse('${ApiService.baseUrl}/food/${item.id}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+
+      if (response.statusCode == 200) {
+        _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Item availability updated')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating availability: $e')),
+      );
+    }
   }
 
   void _toggleCategoryStatus(Category category, bool active) async {
-    // TODO: Implement toggle category status
-    _loadData();
+    try {
+      final data = {
+        'name': category.name,
+        'description': category.description,
+        'imageUrl': category.imageUrl,
+        'active': active,
+      };
+
+      final response = await http.put(
+        Uri.parse('${ApiService.baseUrl}/categories/${category.id}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+
+      if (response.statusCode == 200) {
+        _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Category status updated')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating category: $e')),
+      );
+    }
   }
 
   void _deleteFoodItem(FoodItem item) async {

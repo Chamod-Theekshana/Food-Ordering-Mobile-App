@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../providers/cart_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/custom_button.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -184,17 +185,16 @@ class _CartScreenState extends State<CartScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      SizedBox(
+                      CustomButton(
+                        text: 'Proceed to Checkout',
                         width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CheckoutScreen(user: widget.user),
-                            ),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CheckoutScreen(user: widget.user),
                           ),
-                          child: const Text('Proceed to Checkout'),
                         ),
+                        icon: Icons.shopping_cart_checkout,
                       ),
                     ],
                   ),

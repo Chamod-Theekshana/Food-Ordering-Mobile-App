@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backend Test</title>
+</head>
+<body>
+    <h1>Backend API Test</h1>
+    <button onclick="testCategories()">Test Categories</button>
+    <button onclick="testFoodItems()">Test Food Items</button>
+    <div id="result"></div>
+
+    <script>
+        const baseUrl = 'http://localhost:8080/api';
+        
+        async function testCategories() {
+            try {
+                const response = await fetch(`${baseUrl}/categories`);
+                const data = await response.json();
+                document.getElementById('result').innerHTML = 
+                    `<h3>Categories (${data.length}):</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `<h3>Categories Error:</h3><pre>${error.message}</pre>`;
+            }
+        }
+        
+        async function testFoodItems() {
+            try {
+                const response = await fetch(`${baseUrl}/food`);
+                const data = await response.json();
+                document.getElementById('result').innerHTML = 
+                    `<h3>Food Items (${data.length}):</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `<h3>Food Items Error:</h3><pre>${error.message}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html>

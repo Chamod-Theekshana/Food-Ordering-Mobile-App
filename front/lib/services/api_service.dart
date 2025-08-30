@@ -50,12 +50,52 @@ class ApiService {
     return [];
   }
 
+  static Future<List<Category>> getAllCategoriesForAdmin() async {
+    try {
+      print('API: Fetching admin categories from $baseUrl/categories/admin');
+      final response = await http.get(Uri.parse('$baseUrl/categories/admin'));
+      print('API: Categories response status: ${response.statusCode}');
+      print('API: Categories response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        List<dynamic> data = jsonDecode(response.body);
+        final categories = data.map((item) => Category.fromJson(item)).toList();
+        print('API: Parsed ${categories.length} categories');
+        return categories;
+      }
+      print('API: Categories request failed with status ${response.statusCode}');
+    } catch (e) {
+      print('API: Error fetching admin categories: $e');
+    }
+    return [];
+  }
+
   // Food APIs
   static Future<List<FoodItem>> getFoodItems() async {
     final response = await http.get(Uri.parse('$baseUrl/food'));
     if (response.statusCode == 200) {
       List<dynamic> data = jsonDecode(response.body);
       return data.map((item) => FoodItem.fromJson(item)).toList();
+    }
+    return [];
+  }
+
+  static Future<List<FoodItem>> getAllFoodItemsForAdmin() async {
+    try {
+      print('API: Fetching admin food items from $baseUrl/food/admin');
+      final response = await http.get(Uri.parse('$baseUrl/food/admin'));
+      print('API: Food items response status: ${response.statusCode}');
+      print('API: Food items response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        List<dynamic> data = jsonDecode(response.body);
+        final items = data.map((item) => FoodItem.fromJson(item)).toList();
+        print('API: Parsed ${items.length} food items');
+        return items;
+      }
+      print('API: Food items request failed with status ${response.statusCode}');
+    } catch (e) {
+      print('API: Error fetching admin food items: $e');
     }
     return [];
   }
@@ -189,9 +229,20 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getAllOrders() async {
-    final response = await http.get(Uri.parse('$baseUrl/orders'));
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+    try {
+      print('API: Fetching all orders from $baseUrl/orders');
+      final response = await http.get(Uri.parse('$baseUrl/orders'));
+      print('API: Orders response status: ${response.statusCode}');
+      print('API: Orders response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final orders = jsonDecode(response.body);
+        print('API: Parsed ${orders.length} orders');
+        return orders;
+      }
+      print('API: Orders request failed with status ${response.statusCode}');
+    } catch (e) {
+      print('API: Error fetching orders: $e');
     }
     return [];
   }
@@ -207,9 +258,20 @@ class ApiService {
 
   // Reports APIs
   static Future<Map<String, dynamic>> getDashboardStats() async {
-    final response = await http.get(Uri.parse('$baseUrl/reports/dashboard'));
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+    try {
+      print('API: Fetching dashboard stats from $baseUrl/reports/dashboard');
+      final response = await http.get(Uri.parse('$baseUrl/reports/dashboard'));
+      print('API: Dashboard stats response status: ${response.statusCode}');
+      print('API: Dashboard stats response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final stats = jsonDecode(response.body);
+        print('API: Parsed dashboard stats: $stats');
+        return stats;
+      }
+      print('API: Dashboard stats request failed with status ${response.statusCode}');
+    } catch (e) {
+      print('API: Error fetching dashboard stats: $e');
     }
     return {};
   }

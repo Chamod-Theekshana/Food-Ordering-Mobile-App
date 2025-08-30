@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin API Test</title>
+</head>
+<body>
+    <h1>Admin API Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const baseUrl = 'http://localhost:8080/api';
+        const results = document.getElementById('results');
+        
+        async function testAPI() {
+            try {
+                // Test categories admin endpoint
+                console.log('Testing categories admin endpoint...');
+                const categoriesResponse = await fetch(`${baseUrl}/categories/admin`);
+                const categories = await categoriesResponse.json();
+                results.innerHTML += `<h3>Categories (${categories.length}):</h3><pre>${JSON.stringify(categories, null, 2)}</pre>`;
+                
+                // Test food admin endpoint
+                console.log('Testing food admin endpoint...');
+                const foodResponse = await fetch(`${baseUrl}/food/admin`);
+                const food = await foodResponse.json();
+                results.innerHTML += `<h3>Food Items (${food.length}):</h3><pre>${JSON.stringify(food, null, 2)}</pre>`;
+                
+                // Test orders endpoint
+                console.log('Testing orders endpoint...');
+                const ordersResponse = await fetch(`${baseUrl}/orders`);
+                const orders = await ordersResponse.json();
+                results.innerHTML += `<h3>Orders (${orders.length}):</h3><pre>${JSON.stringify(orders, null, 2)}</pre>`;
+                
+                // Test dashboard stats
+                console.log('Testing dashboard stats...');
+                const statsResponse = await fetch(`${baseUrl}/reports/dashboard`);
+                const stats = await statsResponse.json();
+                results.innerHTML += `<h3>Dashboard Stats:</h3><pre>${JSON.stringify(stats, null, 2)}</pre>`;
+                
+            } catch (error) {
+                results.innerHTML += `<h3>Error:</h3><pre>${error.message}</pre>`;
+                console.error('API Test Error:', error);
+            }
+        }
+        
+        // Run test when page loads
+        testAPI();
+    </script>
+</body>
+</html>
